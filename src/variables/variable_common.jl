@@ -332,7 +332,7 @@ function _representative_index_to_coefficient(m, ind, indices)
         representative_t_to_coef = representative_t_to_coef_arr[i]
         # representative_t_to_coef = representative_t_to_coef_arr[i]
         # if isnothing(dictKeyType)
-        dictKeyType = typeof(indices(m; ind..., t=first(keys(representative_t_to_coef))))
+        dictKeyType = typeof(first(indices(m; ind..., t=first(keys(representative_t_to_coef)))))
         dictValType = typeof(first(values(representative_t_to_coef)))
         # end
         dict = Dict{dictKeyType,dictValType}()
@@ -343,8 +343,9 @@ function _representative_index_to_coefficient(m, ind, indices)
                 emptyKey = true
                 break
             end
-            dict[inds] = coef
-            indsCache = inds
+            firstInd = first(inds)
+            dict[firstInd] = coef
+            indsCache = firstInd
             coefsCache = coef
         end
         if !emptyKey
@@ -373,11 +374,11 @@ function _representative_index_to_coefficient(m, ind, indices)
             join(("'$blk'" for blk in representative_blocks), ", "),
         )
     end
-    lastDictStart::Float64 = Base.Libc.time() # TODO: only use first of indices
+    lastDictStart::Float64 = Base.Libc.time()
     # repDict = Dict(Iterators.map(((inds,coef),) -> (first(inds),coef),representative_inds_to_coef))
-    repDict = Dict{typeof(first(indsCache)), typeof(coefsCache)}()
-    for (inds,coef) in representative_inds_to_coef
-        repDict[first(inds)] = coef
+    repDict = Dict{typeof(indsCache), typeof(coefsCache)}()
+    for (ind,coef) in representative_inds_to_coef
+        repDict[ind] = coef
     end
     end_time::Float64 = Base.Libc.time()
     global totalFunctionTimer
