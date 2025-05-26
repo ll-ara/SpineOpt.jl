@@ -305,9 +305,30 @@ function _representative_index_to_coefficient(m, ind, indices)
     #     Dict(indices(m; ind..., t=representative_t) => coef for (representative_t, coef) in representative_t_to_coef)
     #     for representative_t_to_coef in representative_t_to_coef_arr
     # ]
-    representative_inds_to_coef_arr = Vector{Dict{typeof(indices(m; ind..., t=first(keys(first(representative_t_to_coef_arr))))), typeof(first(values(first(representative_t_to_coef_arr))))}}(undef, length(representative_t_to_coef_arr))
-    @inbounds for i in eachindex(representative_t_to_coef_arr)
+    representative_inds_to_coef = nothing
+    # representative_inds_to_coef_arr = Vector{Dict{typeof(indices(m; ind..., t=first(keys(first(representative_t_to_coef_arr))))), typeof(first(values(first(representative_t_to_coef_arr))))}}(undef, length(representative_t_to_coef_arr))
+    # @inbounds for i in eachindex(representative_t_to_coef_arr)
+    #     representative_t_to_coef = representative_t_to_coef_arr[i]
+    #     dict = Dict{typeof(indices(m; ind..., t=first(keys(representative_t_to_coef)))), typeof(first(values(representative_t_to_coef)))}()
+    #     emptyKey::Bool = false
+    #     for (representative_t, coef) in representative_t_to_coef
+    #         inds = indices(m; ind..., t=representative_t)
+    #         if isempty(inds)
+    #             emptyKey = true
+    #             break
+    #         end
+    #         dict[inds] = coef
+    #     end
+    #     if !emptyKey
+    #         representative_inds_to_coef_arr[i] = dict
+    #         break
+    #     end
+    # end
+    indsCache = nothing
+    coefsCache = nothing
+    for i in eachindex(representative_t_to_coef_arr)
         representative_t_to_coef = representative_t_to_coef_arr[i]
+        # representative_t_to_coef = representative_t_to_coef_arr[i]
         dict = Dict{typeof(indices(m; ind..., t=first(keys(representative_t_to_coef)))), typeof(first(values(representative_t_to_coef)))}()
         emptyKey::Bool = false
         for (representative_t, coef) in representative_t_to_coef
@@ -317,16 +338,19 @@ function _representative_index_to_coefficient(m, ind, indices)
                 break
             end
             dict[inds] = coef
+            indsCache = inds
+            coefsCache = coef
         end
         if !emptyKey
-            representative_inds_to_coef_arr[i] = dict
+            representative_inds_to_coef = dict
+            break
         end
     end
     afterFirstDict::Float64 = Base.Libc.time()
     # filter!(representative_inds_to_coef_arr) do representative_inds_to_coef
     #     !any(isempty.(keys(representative_inds_to_coef)))
     # end
-    if isempty(representative_inds_to_coef_arr)
+    if isnothing(representative_inds_to_coef)
         representative_blocks = unique(
             blk
             for representative_t_to_coef in representative_t_to_coef_arr
@@ -344,7 +368,14 @@ function _representative_index_to_coefficient(m, ind, indices)
         )
     end
     lastDictStart::Float64 = Base.Libc.time()
-    retVal = Dict(first(inds) => coef for (inds, coef) in first(representative_inds_to_coef_arr))
+    repDict = Dict{typeof(first(indsCache)), typeof(coefsCache)}()
+    for (inds,coef) in representative_inds_to_coef
+        repDict[first(inds)] = coef
+    end
+    # @inbounds for i in eachindex(inds)
+    #     repDict[inds[i]] = coefs[i]
+    # end
+    # retVal = Dict(first(inds) => coef for (inds, coef) in representative_inds_to_coef)
     end_time::Float64 = Base.Libc.time()
     global totalFunctionTimer
     global firstDictTimer
@@ -354,5 +385,5 @@ function _representative_index_to_coefficient(m, ind, indices)
     firstDictTimer += afterFirstDict - beforeFirstDict
     lastDictStartTimer += end_time - lastDictStart
     betweenDictTimer += lastDictStart - afterFirstDict
-    return retVal
+    return repDict
 end
