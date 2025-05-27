@@ -294,15 +294,9 @@ function print_timers()
     println("indsTimer: ", indsTimer, " seconds")
 end
 
-@memoize function myGetInd(m::Model; ind,representative_t,indices)
+@memoize function get_ind_cached(m::Model; ind,representative_t,indices)
     inds = indices(m; ind..., t=representative_t)
     isempty(inds) ? nothing : first(inds)
-    # if isempty(inds)
-    #     return nothing
-    #     # print("isemtpy ") # doesn't really happen much
-    # else 
-    #     return first(inds)
-    # end
 end
 
 # """
@@ -312,44 +306,38 @@ function _representative_index_to_coefficient(m, ind, indices)
     start_time::Float64 = Base.Libc.time()
     representative_t_to_coef_arr = representative_time_slice_combinations(m, ind.t)
     representative_inds_to_coef = nothing
-    beforeFirstDict::Float64 = Base.Libc.time()
-    # variables to cache the values so that the types can be known ahead of time
-    # indCache = nothing
-    # coefCache = nothing
-    # kv_pairs::Vector{Pair{String, Int}} = Vector{Pair{String, Int}}(undef, 3)
-    # bigLoopIt = 1
-    # loopIt = 1
+    # beforeFirstDict::Float64 = Base.Libc.time()
     for representative_t_to_coef in representative_t_to_coef_arr
-        pairs = Tuple[]
-        emptyKey = false
+        ind_coefs = Tuple[]
+        contains_empty_key = false
         # loopIt = 1
         for (representative_t, coef) in representative_t_to_coef
-            start_time_inds::Float64 = Base.Libc.time()
+            # start_time_inds::Float64 = Base.Libc.time()
             # inds = indices(m; ind..., t=representative_t)
-            ind = myGetInd(m; ind, representative_t,indices)
-            emptyKey = emptyKey || isnothing(ind)
-            end_time_inds::Float64 = Base.Libc.time()
-            global indsTimer
-            indsTimer += end_time_inds - start_time_inds
+            ind = get_ind_cached(m; ind, representative_t,indices)
+            contains_empty_key = contains_empty_key || isnothing(ind)
+            # end_time_inds::Float64 = Base.Libc.time()
+            # global indsTimer
+            # indsTimer += end_time_inds - start_time_inds
             # if isempty(inds)
             #     emptyKey = true
             #     # print("isemtpy ") # doesn't really happen much
             #     break
             # end
             # push!(pairs, Pair(first(inds), coef))
-            push!(pairs, (ind, coef))
+            push!(ind_coefs, (ind, coef))
             # loopIt += 1
         end
         # print("loopIt: ", loopIt) # 5-10 iterations
-        if !emptyKey
-            representative_inds_to_coef = pairs
+        if !contains_empty_key
+            representative_inds_to_coef = ind_coefs
             break
         end
         # bigLoopIt += 1
     end
     # println("bigLoopIt, ",bigLoopIt) # usually just 1 iteration
     # println("loopIt: ", loopIt)
-    afterFirstDict::Float64 = Base.Libc.time()
+    # afterFirstDict::Float64 = Base.Libc.time()
     if isnothing(representative_inds_to_coef)
         representative_blocks = unique(
             blk
@@ -367,23 +355,23 @@ function _representative_index_to_coefficient(m, ind, indices)
             join(("'$blk'" for blk in representative_blocks), ", "),
         )
     end
-    lastDictStart::Float64 = Base.Libc.time()
+    # lastDictStart::Float64 = Base.Libc.time()
     # repDict = Dict{typeof(indCache), typeof(coefCache)}()
     # for (ind,coef) in representative_inds_to_coef
     #     repDict[ind] = coef
     # end
     # repDict = Dict(ind => coef for (ind, coef) in representative_inds_to_coef)
-    repDict = Dict(pair[1] => pair[2] for pair in representative_inds_to_coef)
+    rep_dict = Dict(ind_coefs[1] => ind_coefs[2] for ind_coefs in representative_inds_to_coef)
     end_time::Float64 = Base.Libc.time()
     global totalFunctionTimer
-    global firstDictTimer
-    global lastDictStartTimer
-    global betweenDictTimer
+    # global firstDictTimer
+    # global lastDictStartTimer
+    # global betweenDictTimer
     totalFunctionTimer += end_time - start_time
-    firstDictTimer += afterFirstDict - beforeFirstDict
-    lastDictStartTimer += end_time - lastDictStart
-    betweenDictTimer += lastDictStart - afterFirstDict
-    return repDict
+    # firstDictTimer += afterFirstDict - beforeFirstDict
+    # lastDictStartTimer += end_time - lastDictStart
+    # betweenDictTimer += lastDictStart - afterFirstDict
+    return rep_dict
 end
 
 
