@@ -281,63 +281,47 @@ function _represented_indices(m::Model, indices::Function, replacement_expressio
 end
 
 totalFunctionTimer::Float64 = 0.0
-firstDictTimer::Float64 = 0.0
-lastDictStartTimer::Float64 = 0.0
-betweenDictTimer::Float64 = 0.0
-indsTimer::Float64 = 0.0
+# firstDictTimer::Float64 = 0.0
+# lastDictStartTimer::Float64 = 0.0
+# betweenDictTimer::Float64 = 0.0
+# indsTimer::Float64 = 0.0
 
 function print_timers()
     println("Total function time: ", totalFunctionTimer, " seconds")
-    println("Time for first Dict: ", firstDictTimer, " seconds")
-    println("Time for last Dict: ", lastDictStartTimer, " seconds")
-    println("Time between Dicts: ", betweenDictTimer, " seconds")
-    println("indsTimer: ", indsTimer, " seconds")
+    # println("Time for first Dict: ", firstDictTimer, " seconds")
+    # println("Time for last Dict: ", lastDictStartTimer, " seconds")
+    # println("Time between Dicts: ", betweenDictTimer, " seconds")
+    # println("indsTimer: ", indsTimer, " seconds")
 end
 
+"""
+A function to cache the representative indidces used in _representative_index_to_coefficient()
+"""
 @memoize function get_ind_cached(m::Model; ind,representative_t,indices)
     inds = indices(m; ind..., t=representative_t)
     isempty(inds) ? nothing : first(inds)
 end
 
-# """
-# A `Dict` mapping representative indidces to coefficient.
-# """
+"""
+A `Dict` mapping representative indidces to coefficient.
+"""
 function _representative_index_to_coefficient(m, ind, indices)
     start_time::Float64 = Base.Libc.time()
     representative_t_to_coef_arr = representative_time_slice_combinations(m, ind.t)
     representative_inds_to_coef = nothing
-    # beforeFirstDict::Float64 = Base.Libc.time()
     for representative_t_to_coef in representative_t_to_coef_arr
         ind_coefs = Tuple[]
         contains_empty_key = false
-        # loopIt = 1
         for (representative_t, coef) in representative_t_to_coef
-            # start_time_inds::Float64 = Base.Libc.time()
-            # inds = indices(m; ind..., t=representative_t)
             ind = get_ind_cached(m; ind, representative_t,indices)
             contains_empty_key = contains_empty_key || isnothing(ind)
-            # end_time_inds::Float64 = Base.Libc.time()
-            # global indsTimer
-            # indsTimer += end_time_inds - start_time_inds
-            # if isempty(inds)
-            #     emptyKey = true
-            #     # print("isemtpy ") # doesn't really happen much
-            #     break
-            # end
-            # push!(pairs, Pair(first(inds), coef))
             push!(ind_coefs, (ind, coef))
-            # loopIt += 1
         end
-        # print("loopIt: ", loopIt) # 5-10 iterations
         if !contains_empty_key
             representative_inds_to_coef = ind_coefs
             break
         end
-        # bigLoopIt += 1
     end
-    # println("bigLoopIt, ",bigLoopIt) # usually just 1 iteration
-    # println("loopIt: ", loopIt)
-    # afterFirstDict::Float64 = Base.Libc.time()
     if isnothing(representative_inds_to_coef)
         representative_blocks = unique(
             blk
@@ -355,22 +339,10 @@ function _representative_index_to_coefficient(m, ind, indices)
             join(("'$blk'" for blk in representative_blocks), ", "),
         )
     end
-    # lastDictStart::Float64 = Base.Libc.time()
-    # repDict = Dict{typeof(indCache), typeof(coefCache)}()
-    # for (ind,coef) in representative_inds_to_coef
-    #     repDict[ind] = coef
-    # end
-    # repDict = Dict(ind => coef for (ind, coef) in representative_inds_to_coef)
     rep_dict = Dict(ind_coefs[1] => ind_coefs[2] for ind_coefs in representative_inds_to_coef)
     end_time::Float64 = Base.Libc.time()
     global totalFunctionTimer
-    # global firstDictTimer
-    # global lastDictStartTimer
-    # global betweenDictTimer
     totalFunctionTimer += end_time - start_time
-    # firstDictTimer += afterFirstDict - beforeFirstDict
-    # lastDictStartTimer += end_time - lastDictStart
-    # betweenDictTimer += lastDictStart - afterFirstDict
     return rep_dict
 end
 
