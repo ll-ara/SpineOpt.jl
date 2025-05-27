@@ -280,39 +280,74 @@ function _represented_indices(m::Model, indices::Function, replacement_expressio
     setdiff(all_indices, representative_indices, keys(replacement_expressions))
 end
 
-"""
-A `Dict` mapping representative indidces to coefficient.
-"""
+totalFunctionTimer::Float64 = 0.0
+firstDictTimer::Float64 = 0.0
+lastDictStartTimer::Float64 = 0.0
+betweenDictTimer::Float64 = 0.0
+indsTimer::Float64 = 0.0
+
+function print_timers()
+    println("Total function time: ", totalFunctionTimer, " seconds")
+    println("Time for first Dict: ", firstDictTimer, " seconds")
+    println("Time for last Dict: ", lastDictStartTimer, " seconds")
+    println("Time between Dicts: ", betweenDictTimer, " seconds")
+    println("indsTimer: ", indsTimer, " seconds")
+end
+
+@memoize function myGetInd(m::Model; ind,representative_t,indices)
+    inds = indices(m; ind..., t=representative_t)
+    if isempty(inds)
+        return Pair(true,nothing)
+        # print("isemtpy ") # doesn't really happen much
+    else 
+        return Pair(false,first(inds))
+    end
+end
+
+# """
+# A `Dict` mapping representative indidces to coefficient.
+# """
 function _representative_index_to_coefficient(m, ind, indices)
+    start_time::Float64 = Base.Libc.time()
     representative_t_to_coef_arr = representative_time_slice_combinations(m, ind.t)
     representative_inds_to_coef = nothing
+    beforeFirstDict::Float64 = Base.Libc.time()
     # variables to cache the values so that the types can be known ahead of time
-    indCache = nothing
-    coefCache = nothing
-    for i in eachindex(representative_t_to_coef_arr)
-        representative_t_to_coef = representative_t_to_coef_arr[i]
-        # Creating a dict with specified types
-        dictKeyType = typeof(first(indices(m; ind..., t=first(keys(representative_t_to_coef)))))
-        dictValType = typeof(first(values(representative_t_to_coef)))
-        representative_inds_to_coef_temp = Dict{dictKeyType,dictValType}()
-        emptyKey::Bool = false
+    # indCache = nothing
+    # coefCache = nothing
+    # kv_pairs::Vector{Pair{String, Int}} = Vector{Pair{String, Int}}(undef, 3)
+    # bigLoopIt = 1
+    # loopIt = 1
+    for representative_t_to_coef in representative_t_to_coef_arr
+        pairs = Pair[]
+        emptyKey = false
+        # loopIt = 1
         for (representative_t, coef) in representative_t_to_coef
-            inds = indices(m; ind..., t=representative_t)
-            # if any of the inds are empty then don't include
-            if isempty(inds)
-                emptyKey = true
-                break
-            end
-            firstInd = first(inds)
-            representative_inds_to_coef_temp[firstInd] = coef
-            indCache = firstInd
-            coefCache = coef
+            start_time_inds::Float64 = Base.Libc.time()
+            # inds = indices(m; ind..., t=representative_t)
+            emptyKey,ind = myGetInd(m; ind, representative_t,indices)
+            end_time_inds::Float64 = Base.Libc.time()
+            global indsTimer
+            indsTimer += end_time_inds - start_time_inds
+            # if isempty(inds)
+            #     emptyKey = true
+            #     # print("isemtpy ") # doesn't really happen much
+            #     break
+            # end
+            # push!(pairs, Pair(first(inds), coef))
+            push!(pairs, Pair(ind, coef))
+            # loopIt += 1
         end
+        # print("loopIt: ", loopIt) # 5-10 iterations
         if !emptyKey
-            representative_inds_to_coef = representative_inds_to_coef_temp
+            representative_inds_to_coef = pairs
             break
         end
+        # bigLoopIt += 1
     end
+    # println("bigLoopIt, ",bigLoopIt) # usually just 1 iteration
+    # println("loopIt: ", loopIt)
+    afterFirstDict::Float64 = Base.Libc.time()
     if isnothing(representative_inds_to_coef)
         representative_blocks = unique(
             blk
@@ -330,9 +365,66 @@ function _representative_index_to_coefficient(m, ind, indices)
             join(("'$blk'" for blk in representative_blocks), ", "),
         )
     end
-    repDict = Dict{typeof(indCache), typeof(coefCache)}()
-    for (ind,coef) in representative_inds_to_coef
-        repDict[ind] = coef
-    end
+    lastDictStart::Float64 = Base.Libc.time()
+    # repDict = Dict{typeof(indCache), typeof(coefCache)}()
+    # for (ind,coef) in representative_inds_to_coef
+    #     repDict[ind] = coef
+    # end
+    # repDict = Dict(ind => coef for (ind, coef) in representative_inds_to_coef)
+    repDict = Dict(pair.first => pair.second for pair in representative_inds_to_coef)
+    end_time::Float64 = Base.Libc.time()
+    global totalFunctionTimer
+    global firstDictTimer
+    global lastDictStartTimer
+    global betweenDictTimer
+    totalFunctionTimer += end_time - start_time
+    firstDictTimer += afterFirstDict - beforeFirstDict
+    lastDictStartTimer += end_time - lastDictStart
+    betweenDictTimer += lastDictStart - afterFirstDict
     return repDict
 end
+
+
+
+# function _representative_index_to_coefficient(m, ind, indices)
+#     start_time::Float64 = Base.Libc.time()
+#     representative_t_to_coef_arr = representative_time_slice_combinations(m, ind.t)
+#     beforeFirstDict::Float64 = Base.Libc.time()
+#     representative_inds_to_coef_arr = [
+#         Dict(indices(m; ind..., t=representative_t) => coef for (representative_t, coef) in representative_t_to_coef)
+#         for representative_t_to_coef in representative_t_to_coef_arr
+#     ]
+#     afterFirstDict::Float64 = Base.Libc.time()
+#     filter!(representative_inds_to_coef_arr) do representative_inds_to_coef
+#         !any(isempty.(keys(representative_inds_to_coef)))
+#     end
+#     if isempty(representative_inds_to_coef_arr)
+#         representative_blocks = unique(
+#             blk
+#             for representative_t_to_coef in representative_t_to_coef_arr
+#             for t in keys(representative_t_to_coef)
+#             for blk in blocks(t)
+#             if representative_periods_mapping(temporal_block=blk) === nothing
+#         )
+#         node_or_unit = hasproperty(ind, :node) ? "node '$(ind.node)'" : "unit '$(ind.unit)'"
+#         error(
+#             "can't find a linear representative index combination for $ind -",
+#             " this is probably because ",
+#             node_or_unit,
+#             " is not associated to any of the representative temporal_blocks ",
+#             join(("'$blk'" for blk in representative_blocks), ", "),
+#         )
+#     end
+#     lastDictStart::Float64 = Base.Libc.time()
+#     repDict = Dict(first(inds) => coef for (inds, coef) in first(representative_inds_to_coef_arr))
+#     end_time::Float64 = Base.Libc.time()
+#     global totalFunctionTimer
+#     global firstDictTimer
+#     global lastDictStartTimer
+#     global betweenDictTimer
+#     totalFunctionTimer += end_time - start_time
+#     firstDictTimer += afterFirstDict - beforeFirstDict
+#     lastDictStartTimer += end_time - lastDictStart
+#     betweenDictTimer += lastDictStart - afterFirstDict
+#     return repDict
+# end
