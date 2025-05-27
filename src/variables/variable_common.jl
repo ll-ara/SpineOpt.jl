@@ -296,12 +296,13 @@ end
 
 @memoize function myGetInd(m::Model; ind,representative_t,indices)
     inds = indices(m; ind..., t=representative_t)
-    if isempty(inds)
-        return Pair(true,nothing)
-        # print("isemtpy ") # doesn't really happen much
-    else 
-        return Pair(false,first(inds))
-    end
+    isempty(inds) ? nothing : first(inds)
+    # if isempty(inds)
+    #     return nothing
+    #     # print("isemtpy ") # doesn't really happen much
+    # else 
+    #     return first(inds)
+    # end
 end
 
 # """
@@ -319,13 +320,14 @@ function _representative_index_to_coefficient(m, ind, indices)
     # bigLoopIt = 1
     # loopIt = 1
     for representative_t_to_coef in representative_t_to_coef_arr
-        pairs = Pair[]
+        pairs = Tuple[]
         emptyKey = false
         # loopIt = 1
         for (representative_t, coef) in representative_t_to_coef
             start_time_inds::Float64 = Base.Libc.time()
             # inds = indices(m; ind..., t=representative_t)
-            emptyKey,ind = myGetInd(m; ind, representative_t,indices)
+            ind = myGetInd(m; ind, representative_t,indices)
+            emptyKey = emptyKey || isnothing(ind)
             end_time_inds::Float64 = Base.Libc.time()
             global indsTimer
             indsTimer += end_time_inds - start_time_inds
@@ -335,7 +337,7 @@ function _representative_index_to_coefficient(m, ind, indices)
             #     break
             # end
             # push!(pairs, Pair(first(inds), coef))
-            push!(pairs, Pair(ind, coef))
+            push!(pairs, (ind, coef))
             # loopIt += 1
         end
         # print("loopIt: ", loopIt) # 5-10 iterations
@@ -371,7 +373,7 @@ function _representative_index_to_coefficient(m, ind, indices)
     #     repDict[ind] = coef
     # end
     # repDict = Dict(ind => coef for (ind, coef) in representative_inds_to_coef)
-    repDict = Dict(pair.first => pair.second for pair in representative_inds_to_coef)
+    repDict = Dict(pair[1] => pair[2] for pair in representative_inds_to_coef)
     end_time::Float64 = Base.Libc.time()
     global totalFunctionTimer
     global firstDictTimer
