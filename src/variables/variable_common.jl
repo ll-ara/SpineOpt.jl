@@ -297,11 +297,11 @@ function _representative_index_to_coefficient(m, ind, indices)
         representative_inds_to_coef = Dict()
         contains_empty_key = false
         for (representative_t, coef) in representative_t_to_coef
-            ind = _get_ind_cached(m; ind, representative_t,indices)
-            contains_empty_key = contains_empty_key || isnothing(ind)
-            representative_inds_to_coef[ind] = coef
+            index = _get_ind_cached(m; ind, representative_t,indices)
+            contains_empty_key = contains_empty_key || isnothing(index)
+            representative_inds_to_coef[index] = coef
         end
-        # if any of the inds are empty then don't include
+        # if any of the indexes are empty then don't include
         if !contains_empty_key return representative_inds_to_coef end
     end
     representative_blocks = unique(
