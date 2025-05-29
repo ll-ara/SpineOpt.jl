@@ -283,7 +283,7 @@ end
 """
 A function to cache the representative indices used in _representative_index_to_coefficient()
 """
-@memoize function get_ind_cached(m::Model; ind,representative_t,indices)
+@memoize function _get_ind_cached(m::Model; ind,representative_t,indices)
     inds = indices(m; ind..., t=representative_t)
     isempty(inds) ? nothing : first(inds)
 end
@@ -297,7 +297,7 @@ function _representative_index_to_coefficient(m, ind, indices)
         representative_inds_to_coef = Dict()
         contains_empty_key = false
         for (representative_t, coef) in representative_t_to_coef
-            ind = get_ind_cached(m; ind, representative_t,indices)
+            ind = _get_ind_cached(m; ind, representative_t,indices)
             contains_empty_key = contains_empty_key || isnothing(ind)
             representative_inds_to_coef[ind] = coef
         end
