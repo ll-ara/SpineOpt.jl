@@ -19,6 +19,7 @@ Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 SpineInterface = "0cda1612-498a-11e9-3c92-77fa82595a4f"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Memoize = "c03570c3-d221-55d1-a50c-7939bbd78826"
+Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
 
 [compat]
 Arrow = "2"

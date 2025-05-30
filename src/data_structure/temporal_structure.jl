@@ -661,7 +661,7 @@ An `Array` of `TimeSlice`s in model `m` that overlap the given `t`, where `t` *m
 """
 t_overlaps_t(m::Model; t::TimeSlice) = m.ext[:spineopt].temporal_structure[:t_overlaps_t](t)
 
-function representative_time_slice_combinations(m, t)
+function representative_time_slice_combinations(m::Model, t::TimeSlice)
     get(m.ext[:spineopt].temporal_structure[:representative_time_slice_combinations], t, [Dict(t => 1)])
 end
 

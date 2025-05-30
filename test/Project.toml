@@ -10,6 +10,7 @@ PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
 SpineInterface = "0cda1612-498a-11e9-3c92-77fa82595a4f"
 SpineOpt = "0d8fc150-4032-4b6e-9540-20efcb304861"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
 
 [compat]
 julia = "^1.2"

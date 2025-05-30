@@ -280,29 +280,49 @@ function _represented_indices(m::Model, indices::Function, replacement_expressio
     setdiff(all_indices, representative_indices, keys(replacement_expressions))
 end
 
+const indType = Union{@NamedTuple{node::Object, stochastic_scenario::Object, t::TimeSlice},
+@NamedTuple{unit::Object, node::Object, direction::Object, stochastic_scenario::Object, t::TimeSlice},
+@NamedTuple{unit::Object, stochastic_scenario::Object, t::TimeSlice},
+@NamedTuple{connection::SpineInterface.Object, node::SpineInterface.Object, direction::SpineInterface.Object, stochastic_scenario::SpineInterface.Object, t::SpineInterface.TimeSlice}}
+
+
 """
 A function to cache the representative indices used in _representative_index_to_coefficient()
 """
-@memoize function _get_ind_cached(m::Model; ind,representative_t,indices)
+@inline function _get_ind_cached(m::Model; ind::indType,representative_t::TimeSlice,indices::Function)
     inds = indices(m; ind..., t=representative_t)
     isempty(inds) ? nothing : first(inds)
 end
+timer1::Float64 = 0.0
+
+function printTimer()
+    println("     time to func: ", timer1," seconds")
+end
+
 
 """
 A `Dict` mapping representative indices to coefficient.
 """
-function _representative_index_to_coefficient(m, ind, indices)
+function _representative_index_to_coefficient(m::Model, ind::indType, indices::Function)
+    startTime = time()
     representative_t_to_coef_arr = representative_time_slice_combinations(m, ind.t)
+    # @infiltrate
     for representative_t_to_coef in representative_t_to_coef_arr
         representative_inds_to_coef = Dict()
-        contains_empty_key = false
+        contains_empty_key::Bool = false
         for (representative_t, coef) in representative_t_to_coef
             index = _get_ind_cached(m; ind, representative_t,indices)
             contains_empty_key = contains_empty_key || isnothing(index)
             representative_inds_to_coef[index] = coef
         end
+        
         # if any of the indexes are empty then don't include
-        if !contains_empty_key return representative_inds_to_coef end
+        if !contains_empty_key
+            endTime = time()
+            global timer1
+            timer1 += endTime - startTime
+             return representative_inds_to_coef 
+        end
     end
     representative_blocks = unique(
         blk
@@ -320,3 +340,35 @@ function _representative_index_to_coefficient(m, ind, indices)
         join(("'$blk'" for blk in representative_blocks), ", "),
     )
 end
+
+# """
+# A `Dict` mapping representative indidces to coefficient.
+# """
+# function _representative_index_to_coefficient(m::Model, ind::indType, indices::Function)
+#     representative_t_to_coef_arr = representative_time_slice_combinations(m, ind.t)
+#     representative_inds_to_coef_arr = [
+#         Dict(indices(m; ind..., t=representative_t) => coef for (representative_t, coef) in representative_t_to_coef)
+#         for representative_t_to_coef in representative_t_to_coef_arr
+#     ]
+#     filter!(representative_inds_to_coef_arr) do representative_inds_to_coef
+#         !any(isempty.(keys(representative_inds_to_coef)))
+#     end
+#     if isempty(representative_inds_to_coef_arr)
+#         representative_blocks = unique(
+#             blk
+#             for representative_t_to_coef in representative_t_to_coef_arr
+#             for t in keys(representative_t_to_coef)
+#             for blk in blocks(t)
+#             if representative_periods_mapping(temporal_block=blk) === nothing
+#         )
+#         node_or_unit = hasproperty(ind, :node) ? "node '$(ind.node)'" : "unit '$(ind.unit)'"
+#         error(
+#             "can't find a linear representative index combination for $ind -",
+#             " this is probably because ",
+#             node_or_unit,
+#             " is not associated to any of the representative temporal_blocks ",
+#             join(("'$blk'" for blk in representative_blocks), ", "),
+#         )
+#     end
+#     Dict(first(inds) => coef for (inds, coef) in first(representative_inds_to_coef_arr))
+# end
